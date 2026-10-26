@@ -23,8 +23,8 @@
 # --- IPC FREE PIDs ---
 .equ IPC_FREE_PID,     -1
 
-# --- IPC FD ---
-.equ IPC_FD,    3
+# --- IPC channel-ID ---
+.equ IPC_CHANNEL_ID,    0
 
 # --- IPC RETURN VALUES (Passed to user processes via register a0) ---
 .equ IPC_RETURN_SUCCESS,                0   # Entire IPC transaction successfully completed

@@ -4,10 +4,10 @@
 .include "config.inc"
 .include "constants.inc"
 
-# --- User-A-Execution-Entry ---
+# --- User A Execution-Entry ---
     user_a_code: 
         # 1. Invoke IPC SEND system call to transmit data
-        li a0, IPC_FD               # Argument 0: File descriptor for IPC tracking
+        li a0, IPC_CHANNEL_ID       # Argument 0: channel-ID for IPC tracking
         la a1, msg                  # Argument 1: Base address of the message buffer
         
         # Load the dynamically calculated message length
@@ -26,11 +26,10 @@
 
 # --- User-A-Error-Fallback ---
     USER_A_ERROR:
-        jal x0, USER_A_ERROR        # Tight infinite loop to freeze execution safely
+        jal x0, USER_A_ERROR
 
-
+# --- User A Data-Segment ---
 .section .data
-# --- User-A-Data-Segment ---
     msg:
         GET_USER_A_MSG              # Macro expansion: Inserts the literal string bytes
     msg_end:
@@ -38,4 +37,3 @@
     .align 2
     msg_len_val:
         .word (msg_end - msg)       # Assembler calculates the exact length at compile-time
-    

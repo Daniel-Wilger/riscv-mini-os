@@ -176,7 +176,7 @@ sys_exit:
 # DESCRIPTION: Handles IPC data retrieval from the shared kernel buffer.
 #
 # INPUTS (Registers passed from User Mode):
-#   a0: File Descriptor (Must be IPC_FD / 3)
+#   a0: channel-ID (Must match IPC_CHANNEL_ID)
 #   a1: Base address of the destination user buffer where data will be stored
 #   a2: Maximum length/capacity of the destination user buffer in bytes
 #   a7: Syscall ID (SYS_CALL_RECEIVE / 63)
@@ -186,9 +186,9 @@ sys_exit:
 #   a2: Updated remaining space in the user buffer (0 if fully filled)
 # ==============================================================================
 sys_receive:
-    # 1. Validate file descriptor
-    li t0, IPC_FD
-    bne a0, t0, default_receive_fd
+    # 1. Validate channel-ID
+    li t0, IPC_CHANNEL_ID
+    bne a0, t0, default_receive_channel_id
 
     # 2. Track receiver PID
     la t0, ipc_receiver_pid 
@@ -357,7 +357,7 @@ sys_receive:
 #              shared kernel buffer. Blocks when the buffer is full.
 #
 # INPUTS (Registers passed from User Mode):
-#   a0: File Descriptor (Must be IPC_FD / 3)
+#   a0: channel-ID (Must match IPC_CHANNEL_ID)
 #   a1: Base address of the source message string/buffer in user space
 #   a2: Total length of the message to be transmitted in bytes
 #   a7: Syscall ID (SYS_CALL_SEND / 64)
@@ -366,13 +366,9 @@ sys_receive:
 #   a0: Return Code (IPC_RETURN_SUCCESS or Error Code)
 # ==============================================================================
 sys_send:
-    # 1. Validate file descriptor
-    li t0, IPC_FD                 
-    bne a0, t0, default_send_fd       # If a0 != IPC_FD, redirect to default handler
-    
-    # 1. Validate file descriptor
-    li t0, IPC_FD                 
-    bne a0, t0, default_send_fd       # If a0 != IPC_FD, redirect to default handler
+    # 1. Validate channel-ID
+    li t0, IPC_CHANNEL_ID                 
+    bne a0, t0, default_send_channel_id       # If a0 != IPC_CHANNEL_ID, redirect to default handler
 
     # 2. Track sender PID
     la t0, ipc_sender_pid   
@@ -543,49 +539,52 @@ sys_send:
 
 
 ## ---------------- DEFAULT_HANDLER ------------------------
-#TODO: Kommentare
 # ==============================================================================
-# DEFAULT-HANDLER (Sackgassen für das Debugging)
+# DEFAULT HANDLERS (Debugging Dead-Ends / Traps Stubs)
 # ==============================================================================
-    # 1. Hardware-Fehler (mcause != 8) -> z.B. Illegal Instruction, Access Fault
+    # 1. Unhandled Trap (mcause != 8) -> e.g., Illegal Instruction, Access Fault
     default_trap_handler: 
         j default_trap_handler     
 
-    # 2. Unbekannter Syscall (mcause == 8, aber a7 hat keinen gültigen Code)
+    # 2. Unknown Syscall (mcause == 8, but a7 doesn't contain a valid Syscall-ID)
     default_syscall_handler: 
         j default_syscall_handler   
 
-    # 3. IPC-Fehler: Ungültiger File Descriptor / Kanal bei RECEIVE
-    default_receive_fd: 
-        j default_receive_fd       
+    # 3. IPC Error: Invalid channel-id during RECEIVE
+    default_receive_channel_id: 
+        j default_receive_channel_id    
 
-    # 4. IPC-Fehler: Ungültiger File Descriptor / Kanal bei SEND
-    default_send_fd:
-        j default_send_fd   
+    # 4. IPC Error: Invalid channel-id during SEND
+    default_send_channel_id:
+        j default_send_channel_id   
 
+    # 5. IPC Error: Unexpected status fallback during send_check_ipc_status
     default_send_check_ipc_status:
         j default_send_check_ipc_status  
-        
+    
+    #6. IPC Error: Unexpected status fallback during receive_check_ipc_status
     default_receive_check_ipc_status:
         j default_receive_check_ipc_status     
 
 ### ============================================================================
-### SATELLITEN-DATEN: INITIALISIERTE WERTE (.data)
+### INITIALIZED DATA SEGMENT (.data)
 ### ============================================================================
+# TODO: configs / constants?
 .section .data
     .align 2                        
     
-    # Tabelle der initialen User-Stacks
+    # Table containing the initial top-of-stack addresses for user processes 
     user_stack_tops:
         .word _user_a_stack_top    
         .word _user_b_stack_top    
     
+    # Table containing the entry point program counter (PC) addresses for user processes
     process_pc:
         .word user_a_code
         .word user_b_code
 
 ### ============================================================================
-### ARBEITSSPEICHER: DYNAMISCHE VARIABLEN (.bss)
+### UNINITIALIZED DATA (.bss)
 ### ============================================================================      
 .section .bss
     .global shared_buffer
@@ -598,18 +597,17 @@ sys_send:
     .global current_process_pid
     .global process_trap_frames
 
-    # 1. Der IPC-Puffer selbst (belegt 10 Bytes)
-    .align 2
+    
+    # 1. IPC shared message buffer (occupies SHARED_BUFFER_LEN (config.inc) bytes)
     shared_buffer:
         .fill SHARED_BUFFER_LEN, 1, 0
-
-    # WICHTIG: Holt das Alignment nach den 10 Bytes des Puffers zurück!
+    # Re-align to 4-byte boundary (word alignment) as SHARED_BUFFER_LEN can be any arbitrary natural number
     .align 2
+
     process_states:
         .fill INITIAL_PROCESS_COUNT, 4, 0
 
-    # 2. Status- und Verwaltungsvariablen
-    .align 2
+    # 2. Kernel status an management variables
     shared_buffer_free_bytes:   .space 4
     ipc_status:                 .space 4
     ipc_sender_pid:             .space 4
@@ -617,7 +615,7 @@ sys_send:
     num_process:                .space 4
     current_process_pid:        .space 4
 
-    # 3. Die Trap-Frames der Prozesse
-    .align 2
+    # 3. Storage block for process trap frames
     process_trap_frames:
         .space INITIAL_PROCESS_COUNT * TRAP_FRAME_SIZE
+    .align 2
