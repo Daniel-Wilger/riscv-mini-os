@@ -1,0 +1,12 @@
+# --- Kompilate und Build-Artefakte ---
+build/
+Bericht/
+backup_notizen/
+docs/
+
+# --- System- und Editor-Müll (Linux Mint / Vim / VS Code) ---
+.DS_Store
+*.swp
+*~
+.vscode/
+
