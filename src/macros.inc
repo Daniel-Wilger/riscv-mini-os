@@ -105,7 +105,6 @@
 #              Outputs: Saves state to memory. Establishes kernel stack context.
 #              Scratch: Uses t0, t1, t2 internally after backing them up.
 # ==============================================================================
-#TODO: GET_TRAP_FRAME_ADDRES benutzen
 .macro SAVE_CONTEXT
     # 1. Swap User SP with Kernel SP stored in mscratch
     csrrw sp, mscratch, sp       
@@ -116,11 +115,7 @@
     sw t1, 4(sp)
     
     # 3. Calculate the base address of the current process's trap frame
-    la t0, current_process_pid
-    lw t0, 0(t0)                    # t0 = current PID
-    la t1, process_trap_frames
-    slli t0, t0, TRAP_FRAME_SHIFT
-    add t0, t1, t0                  # t0 = Target Trap Frame base address
+    GET_TRAP_FRAME_ADDRESS t0, t1    # t0 = rd, t1 = scratch
 
     # 4. Save general purpose registers (Skipping x2, x5, x6 temporarily)
     sw x1,  REGOFF_X1(t0)           # ra
